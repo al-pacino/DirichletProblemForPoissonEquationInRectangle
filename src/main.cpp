@@ -385,11 +385,11 @@ void CExchangeDefinition::DoExchange( CMatrix& matrix )
 	}
 
 	MpiCheck( MPI_Isend( sendBuffer.data(), sendBuffer.size(),
-		MPI_DOUBLE, rank, 0, MPI_COMM_WORLD, &sendRequest ), "MPI_Isend" );
+		MpiNumericType, rank, 0, MPI_COMM_WORLD, &sendRequest ), "MPI_Isend" );
 
 	recvBuffer.resize( recvPart.Size() );
 	MpiCheck( MPI_Irecv( recvBuffer.data(), recvBuffer.size(),
-		MPI_DOUBLE, rank, 0, MPI_COMM_WORLD, &recvRequest ), "MPI_Irecv" );
+		MpiNumericType, rank, 0, MPI_COMM_WORLD, &recvRequest ), "MPI_Irecv" );
 }
 
 void CExchangeDefinition::Wait( CMatrix& matrix )
