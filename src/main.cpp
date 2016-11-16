@@ -450,6 +450,7 @@ void Main( const int argc, const char* const argv[] )
 
 		CMpiTimer timer( programTime );
 		CProgram::Run( pointsX, pointsY, Area, *callback );
+		//Serial( pointsX, pointsY, Area, *callback );
 	}
 	cout << "(" << CMpiSupport::Rank() << ") Time: " << programTime << endl;
 }
