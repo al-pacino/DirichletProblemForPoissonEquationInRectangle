@@ -40,35 +40,11 @@ struct CFraction {
 	{
 	}
 
-	explicit CFraction( NumericType value )
-	{
-		*this = value;
-	}
-
-	CFraction& operator=( NumericType value )
-	{
-		Numerator = value;
-		Denominator = static_cast<NumericType>( 1 );
-	}
-
 	NumericType Value() const
 	{
 		return ( Numerator / Denominator );
 	}
-
-	void AllReduce();
 };
-
-///////////////////////////////////////////////////////////////////////////////
-
-void CFraction::AllReduce()
-{
-	NumericType buffer[2] = { Numerator, Denominator };
-	MpiCheck( MPI_Allreduce( MPI_IN_PLACE, buffer, 2 /* count */,
-		MpiNumericType, MPI_SUM, MPI_COMM_WORLD ), "MPI_Allreduce" );
-	Numerator = buffer[0];
-	Denominator = buffer[1];
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -483,6 +459,8 @@ private:
 
 	void setProcessXY();
 	void setExchangeDefinitions();
+	void allReduceFraction( CFraction& fraction );
+	void allReduceDifference();
 	void iteration0();
 	void iteration1();
 };
@@ -601,6 +579,21 @@ void CProgram::setExchangeDefinitions()
 	}
 }
 
+void CProgram::allReduceFraction( CFraction& fraction )
+{
+	NumericType buffer[2] = { fraction.Numerator, fraction.Denominator };
+	MpiCheck( MPI_Allreduce( MPI_IN_PLACE, buffer, 2 /* count */,
+		MpiNumericType, MPI_SUM, MPI_COMM_WORLD ), "MPI_Allreduce" );
+	fraction.Numerator = buffer[0];
+	fraction.Denominator = buffer[1];
+}
+
+void CProgram::allReduceDifference()
+{
+	MpiCheck( MPI_Allreduce( MPI_IN_PLACE, &difference, 1 /* count */,
+		MpiNumericType, MPI_MAX, MPI_COMM_WORLD ), "MPI_Allreduce" );
+}
+
 void CProgram::iteration0()
 {
 #ifdef _DEBUG
@@ -649,12 +642,10 @@ void CProgram::iteration1()
 	exchangeDefinitions.Exchange( r );
 
 	CFraction tau = CalcTau( r, r, grid );
-	tau.AllReduce();
+	allReduceFraction( tau );
 
-	CFraction tmp;
-	tmp.Numerator = CalcP( r, tau.Value(), p );
-	tmp.AllReduce();
-	difference = tmp.Numerator;
+	difference = CalcP( r, tau.Value(), p );
+	allReduceDifference();
 
 	g = r;
 
@@ -671,18 +662,16 @@ void CProgram::Iteration()
 	exchangeDefinitions.Exchange( r );
 
 	CFraction alpha = CalcAlpha( r, g, grid );
-	alpha.AllReduce();
+	allReduceFraction( alpha );
 
 	CalcG( r, alpha.Value(), g );
 	exchangeDefinitions.Exchange( g );
 
 	CFraction tau = CalcTau( r, g, grid );
-	tau.AllReduce();
+	allReduceFraction( tau );
 
-	CFraction tmp;
-	tmp.Numerator = CalcP( g, tau.Value(), p );
-	tmp.AllReduce();
-	difference = tmp.Numerator;
+	difference = CalcP( g, tau.Value(), p );
+	allReduceDifference();
 }
 
 void seq( size_t pointsX, size_t pointsY )
@@ -744,7 +733,7 @@ void Main( const int argc, const char* const argv[] )
 	{
 		CMpiTimer timer( programTime );
 #if 0
-		CProgram program( 100, 100 );
+		CProgram program( 300, 500 );
 
 		const NumericType eps = static_cast<NumericType>( 0.0001 );
 
@@ -774,7 +763,7 @@ void Main( const int argc, const char* const argv[] )
 #endif
 
 #else
-		seq( 100, 100 );
+		seq( 300, 500 );
 #endif
 	}
 	cout << programTime << endl;
