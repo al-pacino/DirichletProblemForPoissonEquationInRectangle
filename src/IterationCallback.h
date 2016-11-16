@@ -4,7 +4,7 @@
 
 class IIterationCallback {
 public:
-	virtual ~IIterationCallback() = 0 {}
+	virtual ~IIterationCallback() {}
 
 	// Ќужно звать до начала итерации.
 	// ¬озвращает true, если нужно продолжать выполнение итерации.
