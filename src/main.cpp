@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cassert>
+#include <memory>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -806,20 +807,38 @@ void Serial( const size_t pointsX, const size_t pointsY, IIterationCallback& cal
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void ParseArguments( const int argc, const char* const argv[],
+	size_t& pointsX, size_t& pointsY )
+{
+	if( argc != 3 ) {
+		throw CException( "too few arguments\nUsage: dirch POINTS_X POINTS_Y" );
+	}
+
+	pointsX = strtoul( argv[1], 0, 10 );
+	pointsY = strtoul( argv[2], 0, 10 );
+
+	if( pointsX == 0 || pointsY == 0 ) {
+		throw CException( "invalid format of arguments\nUsage: dirch POINTS_X POINTS_Y" );
+	}
+}
+
 void Main( const int argc, const char* const argv[] )
 {
+	size_t pointsX;
+	size_t pointsY;
+	ParseArguments( argc, argv, pointsX, pointsY );
+
 	double programTime = 0.0;
 	{
-		CMpiTimer timer( programTime );
+		auto_ptr<IIterationCallback> callback( new CSimpleIterationCallback );
 		if( CMpiSupport::Rank() == 0 ) {
-			CProgram::Run( 300, 500, CIterationCallback( cout, CMpiSupport::Rank() ) );
-		} else {
-			CProgram::Run( 300, 500, CSimpleIterationCallback() );
+			callback.reset( new CIterationCallback( cout, 0 ) );
 		}
 
-		//Serial( 300, 500, CIterationCallback( cout, 1 ) );
+		CMpiTimer timer( programTime );
+		CProgram::Run( pointsX, pointsY, *callback );
 	}
-	cout << programTime << endl;
+	cout << "(" << CMpiSupport::Rank() << ") Time: " << programTime << endl;
 }
 
 int main( int argc, char** argv )
