@@ -8,6 +8,9 @@ public:
 		text( errorText )
 	{
 	}
+	virtual ~CException() throw()
+	{
+	}
 
 	virtual const char* what() const throw()
 	{

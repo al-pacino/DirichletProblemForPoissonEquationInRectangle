@@ -13,6 +13,9 @@ public:
 	{
 		SetErrorText( makeErrorText() );
 	}
+	virtual ~CMpiException() throw()
+	{
+	}
 
 	int ErrorCode() const { return code; }
 	const string& FunctionName() const { return name; }

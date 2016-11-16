@@ -1,4 +1,5 @@
 #include <Std.h>
+#include <Errors.h>
 #include <MpiSupport.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -29,7 +30,7 @@ size_t CMpiSupport::numberOfProccess = 0;
 void CMpiSupport::Initialize( int* argc, char*** argv )
 {
 	if( Initialized() ) {
-		throw logic_error( "MPI was already initialized!" );
+		throw CException( "MPI was already initialized!" );
 	}
 	MpiCheck( MPI_Init( argc, argv ), "MPI_Init" );
 	int tmp;
@@ -56,7 +57,7 @@ void CMpiSupport::Abort( int code )
 void CMpiSupport::checkInitialized()
 {
 	if( !Initialized() ) {
-		throw logic_error( "MPI was not initialized yet!" );
+		throw CException( "MPI was not initialized yet!" );
 	}
 }
 
