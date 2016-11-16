@@ -9,7 +9,10 @@ public:
 	{
 	}
 
-	virtual const char* what() const { return text.c_str(); }
+	virtual const char* what() const throw()
+	{
+		return text.c_str();
+	}
 
 protected:
 	void SetErrorText( const string& errorText )
