@@ -2,17 +2,20 @@
 #include <cassert>
 #include <string>
 #include <vector>
-#include <iomanip>
 #include <iostream>
 #include <algorithm>
-#include <exception>
 
 using namespace std;
 
 #include <MpiSupport.h>
 
+///////////////////////////////////////////////////////////////////////////////
+
 typedef double NumericType;
 const MPI_Datatype MpiNumericType = MPI_DOUBLE;
+const NumericType DefaultEps = static_cast<NumericType>( 0.0001 );
+
+///////////////////////////////////////////////////////////////////////////////
 
 inline NumericType F( NumericType x, NumericType y )
 {
@@ -27,6 +30,83 @@ inline NumericType Phi( NumericType x, NumericType y )
 	const NumericType phi = exp( 1 - xy2 );
 	return phi;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+class IIterationCallback {
+public:
+	virtual ~IIterationCallback() = 0 {}
+
+	// Нужно звать до начала итерации.
+	// Возвращает true, если нужно продолжать выполнение итерации.
+	virtual bool BeginIteration() = 0;
+
+	// Нужно звать после выполнения итерации.
+	virtual void EndIteration( const NumericType difference ) = 0;
+};
+
+class CSimpleIterationCallback : public IIterationCallback {
+public:
+	explicit CSimpleIterationCallback( const NumericType eps = DefaultEps ) :
+		eps( eps ),
+		difference( numeric_limits<NumericType>::max() )
+	{
+	}
+
+	virtual bool BeginIteration()
+	{
+		return ( !( difference < eps ) );
+	}
+	virtual void EndIteration( const NumericType _difference )
+	{
+		difference = _difference;
+	}
+
+private:
+	const NumericType eps;
+	NumericType difference;
+};
+
+class CIterationCallback : public CSimpleIterationCallback {
+public:
+	CIterationCallback( ostream& outputStream, const size_t id,
+			const NumericType eps = DefaultEps,
+			const size_t iterationsLimit = numeric_limits<size_t>::max() ) :
+		CSimpleIterationCallback( eps ),
+		out( outputStream ),
+		id( id ),
+		iterationsLimit( iterationsLimit ),
+		iteration( 0 )
+	{
+	}
+
+	virtual bool BeginIteration()
+	{
+		if( !CSimpleIterationCallback::BeginIteration()
+			|| !( iteration < iterationsLimit ) )
+		{
+			return false;
+		}
+
+		out << "(" << id << ") Iteratition #" << iteration << " started." << endl;
+		return true;
+	}
+
+	virtual void EndIteration( const NumericType difference )
+	{
+		CSimpleIterationCallback::EndIteration( difference );
+
+		cout << "(" << id << ") Iteratition #" << iteration << " finished "
+			<< "with difference `" << difference << "`." << endl;
+		iteration++;
+	}
+
+private:
+	ostream& out;
+	const size_t id;
+	const size_t iterationsLimit;
+	size_t iteration;
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -418,15 +498,8 @@ void GetBeginEndPoints( const size_t numberOfPoints, const size_t numberOfBlocks
 ///////////////////////////////////////////////////////////////////////////////
 
 class CProgram {
-private:
-	CProgram( const CProgram& );
-	CProgram& operator=( const CProgram& );
-
 public:
-	CProgram( size_t pointsX, size_t pointsY );
-
-	NumericType Difference() const { return difference; }
-	void Iteration();
+	static void Run( size_t pointsX, size_t pointsY, IIterationCallback& callback );
 
 private:
 	const size_t numberOfProcesses;
@@ -448,6 +521,8 @@ private:
 	CMatrix g;
 	NumericType difference;
 
+	CProgram( size_t pointsX, size_t pointsY );
+
 	bool hasLeftNeighbor() const { return ( rankX > 0 ); }
 	bool hasRightNeighbor() const { return ( rankX < ( processesX - 1 ) ); }
 	bool hasTopNeighbor() const { return ( rankY > 0 ); }
@@ -463,14 +538,41 @@ private:
 	void allReduceDifference();
 	void iteration0();
 	void iteration1();
+	void iteration2();
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void CProgram::Run( size_t pointsX, size_t pointsY, IIterationCallback& callback )
+{
+	CProgram program( pointsX, pointsY );
+
+	// Выполняем нулевую итерацию (инициализацию).
+	if( !callback.BeginIteration() ) {
+		return;
+	}
+	program.iteration0();
+	callback.EndIteration( program.difference );
+
+	// Выполняем первую итерацию.
+	if( !callback.BeginIteration() ) {
+		return;
+	}
+	program.iteration1();
+	callback.EndIteration( program.difference );
+
+	// Выполняем остальные итерации.
+	while( callback.BeginIteration() ) {
+		program.iteration2();
+		callback.EndIteration( program.difference );
+	}
+}
+
 CProgram::CProgram( size_t pointsX, size_t pointsY ) :
 	numberOfProcesses( CMpiSupport::NumberOfProccess() ),
 	rank( CMpiSupport::Rank() ),
-	pointsX( pointsX ), pointsY( pointsY )
+	pointsX( pointsX ), pointsY( pointsY ),
+	difference( numeric_limits<NumericType>::max() )
 {
 	setProcessXY();
 	rankX = rank % processesX;
@@ -508,14 +610,6 @@ CProgram::CProgram( size_t pointsX, size_t pointsY ) :
 			<< i->SendPart() << " " << i->RecvPart() << endl;
 	}
 #endif
-
-	difference = 0;
-
-	// выполняем нулевую итерацию (инициализацию).
-	iteration0();
-
-	// выполняем первую итерацию.
-	iteration1();
 }
 
 void CProgram::setProcessXY()
@@ -596,10 +690,6 @@ void CProgram::allReduceDifference()
 
 void CProgram::iteration0()
 {
-#ifdef _DEBUG
-	cout << "(" << rank << ") Iteratition #0 started." << endl;
-#endif
-
 	p.Init( grid.X.Size(), grid.Y.Size() );
 
 	if( !hasLeftNeighbor() ) {
@@ -624,18 +714,10 @@ void CProgram::iteration0()
 			p( x, bottom ) = Phi( grid.X[x], grid.Y[bottom] );
 		}
 	}
-
-#ifdef _DEBUG
-	cout << "(" << rank << ") Iteratition #0 finished." << endl;
-#endif
 }
 
 void CProgram::iteration1()
 {
-#ifdef _DEBUG
-	cout << "(" << rank << ") Iteratition #1 started." << endl;
-#endif
-
 	r.Init( grid.X.Size(), grid.Y.Size() );
 
 	CalcR( p, grid, r );
@@ -648,13 +730,9 @@ void CProgram::iteration1()
 	allReduceDifference();
 
 	g = r;
-
-#ifdef _DEBUG
-	cout << "(" << rank << ") Iteratition #1 finished." << endl;
-#endif
 }
 
-void CProgram::Iteration()
+void CProgram::iteration2()
 {
 	exchangeDefinitions.Exchange( p );
 
@@ -674,10 +752,11 @@ void CProgram::Iteration()
 	allReduceDifference();
 }
 
-void seq( size_t pointsX, size_t pointsY )
-{
-	const NumericType eps = static_cast<NumericType>( 0.0001 );
+///////////////////////////////////////////////////////////////////////////////
 
+// Последовательная реализация.
+void Serial( const size_t pointsX, const size_t pointsY, IIterationCallback& callback )
+{
 	CUniformGrid grid;
 	grid.X.Init( -2.0, 2.0, pointsX );
 	grid.Y.Init( -2.0, 2.0, pointsY );
@@ -685,43 +764,43 @@ void seq( size_t pointsX, size_t pointsY )
 	CMatrix p( grid.X.Size(), grid.Y.Size() );
 	CMatrix r( grid.X.Size(), grid.Y.Size() );
 
-	// Нулевая итерация.
-	for( size_t i = 0; i < p.SizeX(); i++ ) {
-		p( i, 0 ) = Phi( grid.X[i], grid.Y[0] );
-		p( i, p.SizeY() - 1 ) = Phi( grid.X[i], grid.Y[p.SizeY() - 1] );
-	}
-	for( size_t j = 1; j < p.SizeY() - 1; j++ ) {
-		p( 0, j ) = Phi( grid.X[0], grid.Y[j] );
-		p( p.SizeX() - 1, j ) = Phi( grid.X[p.SizeX() - 1], grid.Y[j] );
-	}
+	NumericType difference = numeric_limits<NumericType>::max();
 
-	NumericType norma = 0;
+	// Выполняем нулевую итерацию (инициализацию).
+	if( !callback.BeginIteration() ) {
+		return;
+	}
+	for( size_t x = 0; x < p.SizeX(); x++ ) {
+		p( x, 0 ) = Phi( grid.X[x], grid.Y[0] );
+		p( x, p.SizeY() - 1 ) = Phi( grid.X[x], grid.Y[p.SizeY() - 1] );
+	}
+	for( size_t y = 1; y < p.SizeY() - 1; y++ ) {
+		p( 0, y ) = Phi( grid.X[0], grid.Y[y] );
+		p( p.SizeX() - 1, y ) = Phi( grid.X[p.SizeX() - 1], grid.Y[y] );
+	}
+	callback.EndIteration( difference );
 
-	// Первая итерация.
+	// Выполняем первую итерацию.
+	if( !callback.BeginIteration() ) {
+		return;
+	}
 	{
 		CalcR( p, grid, r );
 		const CFraction tau = CalcTau( r, r, grid );
-		norma = CalcP( r, tau.Value(), p );
+		difference = CalcP( r, tau.Value(), p );
 	}
+	callback.EndIteration( difference );
 
-	// Остальные итерации.
 	CMatrix g( r );
-	size_t iter = 2;
-	while( !( norma < eps ) ) {
+	// Выполняем остальные итерации.
+	while( callback.BeginIteration() ) {
 		CalcR( p, grid, r );
 		const CFraction alpha = CalcAlpha( r, g, grid );
 		CalcG( r, alpha.Value(), g );
 		const CFraction tau = CalcTau( r, g, grid );
-		norma = CalcP( g, tau.Value(), p );
+		difference = CalcP( g, tau.Value(), p );
 
-	/*	norma = 0.0;
-		for( size_t i = 0; i < p.SizeX(); i++ ) {
-			for( size_t j = 0; j < p.SizeY(); j++ ) {
-				const NumericType diff = abs( p( i, j ) - Phi( grid.X[i], grid.Y[j] ) );
-				norma = max( norma, diff );
-			}
-		}*/
-		cout << "Iteration #" << iter++ << ", norma: " << norma << endl;
+		callback.EndIteration( difference );
 	}
 }
 
@@ -732,39 +811,13 @@ void Main( const int argc, const char* const argv[] )
 	double programTime = 0.0;
 	{
 		CMpiTimer timer( programTime );
-#if 0
-		CProgram program( 300, 500 );
-
-		const NumericType eps = static_cast<NumericType>( 0.0001 );
-
-#define PRINT
-
-#ifdef PRINT
-		size_t iteratition = 1;
-#endif
-
-		while( !( program.Difference() < eps ) ) {
-#ifdef PRINT
-			++iteratition;
-			cout << "(" << CMpiSupport::Rank() << ") Iteratition #" << iteratition << " started." << endl;
-#endif
-
-			program.Iteration();
-
-#ifdef PRINT
-			cout << "(" << CMpiSupport::Rank() << ") Iteratition #" << iteratition << " finished "
-				<< "with difference " << program.Difference() << endl;
-#endif
+		if( CMpiSupport::Rank() == 0 ) {
+			CProgram::Run( 300, 500, CIterationCallback( cout, CMpiSupport::Rank() ) );
+		} else {
+			CProgram::Run( 300, 500, CSimpleIterationCallback() );
 		}
 
-#ifdef PRINT
-		cout << "(" << CMpiSupport::Rank() << ") Finished in " << iteratition << " iterations "
-			<< "with difference " << program.Difference() << endl;
-#endif
-
-#else
-		seq( 300, 500 );
-#endif
+		//Serial( 300, 500, CIterationCallback( cout, 1 ) );
 	}
 	cout << programTime << endl;
 }
