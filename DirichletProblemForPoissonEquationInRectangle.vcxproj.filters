@@ -12,9 +12,33 @@
     <ClCompile Include="src\MpiSupport.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\MathObjects.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MathFunctions.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\MpiSupport.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IterationCallback.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MathObjects.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MathFunctions.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Definitions.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Std.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Errors.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

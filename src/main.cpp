@@ -1,401 +1,10 @@
-#include <cmath>
-#include <cassert>
-#include <memory>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <algorithm>
-
-using namespace std;
+#include <Std.h>
 
 #include <MpiSupport.h>
-
-///////////////////////////////////////////////////////////////////////////////
-
-typedef double NumericType;
-const MPI_Datatype MpiNumericType = MPI_DOUBLE;
-const NumericType DefaultEps = static_cast<NumericType>( 0.0001 );
-
-///////////////////////////////////////////////////////////////////////////////
-
-inline NumericType F( NumericType x, NumericType y )
-{
-	const NumericType xy2 = ( x + y ) * ( x + y );
-	const NumericType f = 4 * ( 1 - 2 * xy2 ) * exp( 1 - xy2 );
-	return f;
-}
-
-inline NumericType Phi( NumericType x, NumericType y )
-{
-	const NumericType xy2 = ( x + y ) * ( x + y );
-	const NumericType phi = exp( 1 - xy2 );
-	return phi;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-class IIterationCallback {
-public:
-	virtual ~IIterationCallback() = 0 {}
-
-	// Ќужно звать до начала итерации.
-	// ¬озвращает true, если нужно продолжать выполнение итерации.
-	virtual bool BeginIteration() = 0;
-
-	// Ќужно звать после выполнени€ итерации.
-	virtual void EndIteration( const NumericType difference ) = 0;
-};
-
-class CSimpleIterationCallback : public IIterationCallback {
-public:
-	explicit CSimpleIterationCallback( const NumericType eps = DefaultEps ) :
-		eps( eps ),
-		difference( numeric_limits<NumericType>::max() )
-	{
-	}
-
-	virtual bool BeginIteration()
-	{
-		return ( !( difference < eps ) );
-	}
-	virtual void EndIteration( const NumericType _difference )
-	{
-		difference = _difference;
-	}
-
-private:
-	const NumericType eps;
-	NumericType difference;
-};
-
-class CIterationCallback : public CSimpleIterationCallback {
-public:
-	CIterationCallback( ostream& outputStream, const size_t id,
-			const NumericType eps = DefaultEps,
-			const size_t iterationsLimit = numeric_limits<size_t>::max() ) :
-		CSimpleIterationCallback( eps ),
-		out( outputStream ),
-		id( id ),
-		iterationsLimit( iterationsLimit ),
-		iteration( 0 )
-	{
-	}
-
-	virtual bool BeginIteration()
-	{
-		if( !CSimpleIterationCallback::BeginIteration()
-			|| !( iteration < iterationsLimit ) )
-		{
-			return false;
-		}
-
-		out << "(" << id << ") Iteratition #" << iteration << " started." << endl;
-		return true;
-	}
-
-	virtual void EndIteration( const NumericType difference )
-	{
-		CSimpleIterationCallback::EndIteration( difference );
-
-		cout << "(" << id << ") Iteratition #" << iteration << " finished "
-			<< "with difference `" << difference << "`." << endl;
-		iteration++;
-	}
-
-private:
-	ostream& out;
-	const size_t id;
-	const size_t iterationsLimit;
-	size_t iteration;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-
-struct CFraction {
-	NumericType Numerator; // числитель
-	NumericType Denominator; // знаменатель
-
-	CFraction() :
-		Numerator( 0 ),
-		Denominator( 0 )
-	{
-	}
-
-	NumericType Value() const
-	{
-		return ( Numerator / Denominator );
-	}
-};
-
-///////////////////////////////////////////////////////////////////////////////
-
-class CMatrix {
-public:
-	CMatrix() :
-		sizeX( 0 ),
-		sizeY( 0 )
-	{
-	}
-
-	CMatrix( size_t sizeX, size_t sizeY )
-	{
-		Init( sizeX, sizeY );
-	}
-
-	CMatrix( const CMatrix& other ) { *this = other; };
-	CMatrix& operator=( const CMatrix& other )
-	{
-		sizeX = other.sizeX;
-		sizeY = other.sizeY;
-		values = other.values;
-		return *this;
-	}
-	
-
-	void Init( const size_t sizeX, const size_t sizeY )
-	{
-		this->sizeX = sizeX;
-		this->sizeY = sizeY;
-		values.resize( sizeX * sizeY );
-		fill( values.begin(), values.end(), static_cast<NumericType>( 0 ) );
-	}
-
-	NumericType& operator()( size_t x, size_t y )
-	{
-		return values[y * sizeX + x];
-	}
-	NumericType operator()( size_t x, size_t y ) const
-	{
-		return values[y * sizeX + x];
-	}
-
-	size_t SizeX() const { return sizeX; }
-	size_t SizeY() const { return sizeY; }
-
-private:
-	size_t sizeX;
-	size_t sizeY;
-	vector<NumericType> values;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-
-struct CMatrixPart {
-	size_t BeginX;
-	size_t EndX;
-	size_t BeginY;
-	size_t EndY;
-
-	CMatrixPart() :
-		BeginX( 0 ), EndX( 0 ),
-		BeginY( 0 ), EndY( 0 )
-	{
-	}
-
-	CMatrixPart( size_t beginX, size_t endX, size_t beginY, size_t endY ) :
-		BeginX( beginX ), EndX( endX ),
-		BeginY( beginY ), EndY( endY )
-	{
-		assert( BeginX < EndX );
-		assert( BeginY < EndY );
-	}
-
-	void SetRow( size_t beginX, size_t endX, size_t y )
-	{
-		assert( beginX < endX );
-		BeginX = beginX;
-		EndX = endX;
-		BeginY = y;
-		EndY = y + 1;
-	}
-
-	void SetColumn( size_t x, size_t beginY, size_t endY )
-	{
-		assert( beginY < endY );
-		BeginX = x;
-		EndX = x + 1;
-		BeginY = beginY;
-		EndY = endY;
-	}
-
-	size_t SizeX() const
-	{
-		return ( EndX - BeginX );
-	}
-
-	size_t SizeY() const
-	{
-		return ( EndY - BeginY );
-	}
-
-	size_t Size() const
-	{
-		return SizeX() * SizeY();
-	}
-};
-
-ostream& operator<<( ostream& out, const CMatrixPart& matrixPart )
-{
-	out << "[" << matrixPart.BeginX << ", " << matrixPart.EndX << ") x "
-		<< "[" << matrixPart.BeginY << ", " << matrixPart.EndY << ")";
-	return out;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-class CUniformPartition {
-private:
-	CUniformPartition( const CUniformPartition& );
-	CUniformPartition& operator=( const CUniformPartition& );
-
-public:
-	CUniformPartition() {}
-
-	void PartInit( NumericType p0, NumericType pN, size_t size, size_t begin, size_t end )
-	{
-		if( !( p0 < pN ) ) {
-			throw CException( "CUniformPartition: bad interval" );
-		}
-		if( !( size > 1 ) ) {
-			throw CException( "CUniformPartition: inavalid size" );
-		}
-		if( !( begin < end && end <= size ) ) {
-			throw CException( "CUniformPartition: invalid [begin, end)" );
-		}
-
-		ps.clear();
-		ps.reserve( end - begin );
-
-		for( size_t i = begin; i < end; i++ ) {
-			const NumericType part = static_cast<NumericType>( i ) / ( size - 1 );
-			const NumericType p = part * pN + ( 1 - part ) * p0;
-			ps.push_back( p );
-		}
-	}
-
-	void Init( NumericType p0, NumericType pN, size_t N )
-	{
-		PartInit( p0, pN, N, 0, N );
-	}
-
-	size_t Size() const
-	{
-		return ps.size();
-	}
-	NumericType operator[]( size_t i ) const
-	{
-		return Point( i );
-	}
-	NumericType Point( size_t i ) const
-	{
-		return ps[i];
-	}
-	NumericType Step( size_t i ) const
-	{
-		return ( Point( i + 1 ) - Point( i ) );
-	}
-	NumericType AverageStep( size_t i ) const
-	{
-		//return ( Step( i ) + Step( i - 1 ) ) / static_cast<NumericType>( 2 );
-		return ( Point( i + 1 ) - Point( i - 1 ) ) / static_cast<NumericType>( 2 );
-	}
-
-private:
-	vector<NumericType> ps;
-};
-
-struct CUniformGrid {
-	CUniformPartition X;
-	CUniformPartition Y;
-
-	CMatrixPart Column( size_t x, size_t decreaseTop = 0, size_t decreaseBottom = 0 ) const
-	{
-		CMatrixPart part;
-		part.SetColumn( x, decreaseTop, Y.Size() - decreaseBottom );
-		return part;
-	}
-	CMatrixPart Row( size_t y, size_t decreaseLeft = 0, size_t decreaseRight = 0 ) const
-	{
-		CMatrixPart part;
-		part.SetRow( decreaseLeft, X.Size() - decreaseRight, y );
-		return part;
-	}
-};
-
-///////////////////////////////////////////////////////////////////////////////
-
-NumericType LaplasOperator( const CMatrix& matrix, const CUniformGrid& grid, size_t x, size_t y )
-{
-	const NumericType ldx = ( matrix( x, y ) - matrix( x - 1, y ) ) / grid.X.Step( x - 1 );
-	const NumericType rdx = ( matrix( x + 1, y ) - matrix( x, y ) ) / grid.X.Step( x );
-	const NumericType tdy = ( matrix( x, y ) - matrix( x, y - 1 ) ) / grid.Y.Step( y - 1 );
-	const NumericType bdy = ( matrix( x, y + 1 ) - matrix( x, y ) ) / grid.Y.Step( y );
-	const NumericType dx = ( ldx - rdx ) / grid.X.AverageStep( x );
-	const NumericType dy = ( tdy - bdy ) / grid.Y.AverageStep( y );
-	return ( dx + dy );
-}
-
-// ¬ычисление нев€зки rij во внутренних точках.
-void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
-{
-	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
-		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
-			r( x, y ) = LaplasOperator( p, grid, x, y ) - F( grid.X[x], grid.Y[y] );
-		}
-	}
-}
-
-// ¬ычисление значений gij во внутренних точках.
-void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
-{
-	for( size_t x = 1; x < g.SizeX() - 1; x++ ) {
-		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
-			g( x, y ) = r( x, y ) - alpha * g( x, y );
-		}
-	}
-}
-
-// ¬ычисление значений pij во внутренних точках, возвращаетс€ максимум норма.
-NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
-{
-	NumericType difference = 0;
-	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
-		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
-			const NumericType newValue = p( x, y ) - tau * g( x, y );
-			difference = max( difference, abs( newValue - p( x, y ) ) );
-			p( x, y ) = newValue;
-		}
-	}
-	return difference;
-}
-
-// ¬ычисление alpha.
-CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
-{
-	CFraction alpha;
-	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
-		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
-			const NumericType common = g( x, y ) * grid.X.AverageStep( x ) * grid.Y.AverageStep( y );
-			alpha.Numerator += LaplasOperator( r, grid, x, y ) * common;
-			alpha.Denominator += LaplasOperator( g, grid, x, y ) * common;
-		}
-	}
-	return alpha;
-}
-
-// ¬ычисление tau.
-CFraction CalcTau( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
-{
-	CFraction tau;
-	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
-		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
-			const NumericType common = g( x, y ) * grid.X.AverageStep( x ) * grid.Y.AverageStep( y );
-			tau.Numerator += r( x, y ) * common;
-			tau.Denominator += LaplasOperator( g, grid, x, y ) * common;
-		}
-	}
-	return tau;
-}
+#include <Definitions.h>
+#include <MathObjects.h>
+#include <MathFunctions.h>
+#include <IterationCallback.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -500,7 +109,8 @@ void GetBeginEndPoints( const size_t numberOfPoints, const size_t numberOfBlocks
 
 class CProgram {
 public:
-	static void Run( size_t pointsX, size_t pointsY, IIterationCallback& callback );
+	static void Run( size_t pointsX, size_t pointsY, const CArea& area,
+		IIterationCallback& callback );
 
 private:
 	const size_t numberOfProcesses;
@@ -522,7 +132,7 @@ private:
 	CMatrix g;
 	NumericType difference;
 
-	CProgram( size_t pointsX, size_t pointsY );
+	CProgram( size_t pointsX, size_t pointsY, const CArea& area );
 
 	bool hasLeftNeighbor() const { return ( rankX > 0 ); }
 	bool hasRightNeighbor() const { return ( rankX < ( processesX - 1 ) ); }
@@ -544,9 +154,10 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void CProgram::Run( size_t pointsX, size_t pointsY, IIterationCallback& callback )
+void CProgram::Run( size_t pointsX, size_t pointsY, const CArea& area,
+	IIterationCallback& callback )
 {
-	CProgram program( pointsX, pointsY );
+	CProgram program( pointsX, pointsY, area );
 
 	// ¬ыполн€ем нулевую итерацию (инициализацию).
 	if( !callback.BeginIteration() ) {
@@ -569,7 +180,7 @@ void CProgram::Run( size_t pointsX, size_t pointsY, IIterationCallback& callback
 	}
 }
 
-CProgram::CProgram( size_t pointsX, size_t pointsY ) :
+CProgram::CProgram( size_t pointsX, size_t pointsY, const CArea& area ) :
 	numberOfProcesses( CMpiSupport::NumberOfProccess() ),
 	rank( CMpiSupport::Rank() ),
 	pointsX( pointsX ), pointsY( pointsY ),
@@ -594,11 +205,11 @@ CProgram::CProgram( size_t pointsX, size_t pointsY ) :
 		endY++;
 	}
 
-	// инициализируем grid
-	grid.X.PartInit( -2.0, 2.0, pointsX, beginX, endX );
-	grid.Y.PartInit( -2.0, 2.0, pointsY, beginY, endY );
+	// »нициализируем grid.
+	grid.X.PartInit( area.X0, area.Xn, pointsX, beginX, endX );
+	grid.Y.PartInit( area.Y0, area.Yn, pointsY, beginY, endY );
 
-	// заполн€ем список соседей с которыми будем обмениватьс€ данными.
+	// «аполн€ем список соседей с которыми будем обмениватьс€ данными.
 	setExchangeDefinitions();
 
 #ifdef _DEBUG
@@ -756,11 +367,13 @@ void CProgram::iteration2()
 ///////////////////////////////////////////////////////////////////////////////
 
 // ѕоследовательна€ реализаци€.
-void Serial( const size_t pointsX, const size_t pointsY, IIterationCallback& callback )
+void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
+	IIterationCallback& callback )
 {
+	// »нициализируем grid.
 	CUniformGrid grid;
-	grid.X.Init( -2.0, 2.0, pointsX );
-	grid.Y.Init( -2.0, 2.0, pointsY );
+	grid.X.Init( area.X0, area.Xn, pointsX );
+	grid.Y.Init( area.Y0, area.Yn, pointsY );
 
 	CMatrix p( grid.X.Size(), grid.Y.Size() );
 	CMatrix r( grid.X.Size(), grid.Y.Size() );
@@ -836,7 +449,7 @@ void Main( const int argc, const char* const argv[] )
 		}
 
 		CMpiTimer timer( programTime );
-		CProgram::Run( pointsX, pointsY, *callback );
+		CProgram::Run( pointsX, pointsY, Area, *callback );
 	}
 	cout << "(" << CMpiSupport::Rank() << ") Time: " << programTime << endl;
 }

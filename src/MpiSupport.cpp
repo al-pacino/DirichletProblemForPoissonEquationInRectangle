@@ -1,9 +1,4 @@
-#include <string>
-#include <sstream>
-#include <exception>
-
-using namespace std;
-
+#include <Std.h>
 #include <MpiSupport.h>
 
 ///////////////////////////////////////////////////////////////////////////////
