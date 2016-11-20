@@ -18,8 +18,12 @@ NumericType LaplasOperator( const CMatrix& matrix, const CUniformGrid& grid, siz
 // Вычисление невязки rij во внутренних точках.
 void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
 {
+#ifndef DIRCH_NO_OPENMP
 #pragma omp parallel for
+	for( long x = 1; x < r.SizeX() - 1; x++ ) {
+#else
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
+#endif
 		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
 			r( x, y ) = LaplasOperator( p, grid, x, y ) - F( grid.X[x], grid.Y[y] );
 		}
@@ -29,8 +33,12 @@ void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
 // Вычисление значений gij во внутренних точках.
 void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
 {
+#ifndef DIRCH_NO_OPENMP
 #pragma omp parallel for
+	for( long x = 1; x < g.SizeX() - 1; x++ ) {
+#else
 	for( size_t x = 1; x < g.SizeX() - 1; x++ ) {
+#endif
 		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
 			g( x, y ) = r( x, y ) - alpha * g( x, y );
 		}
@@ -41,8 +49,12 @@ void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
 NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
 {
 	NumericType difference = 0;
-#pragma omp parallel for shared(difference)
+#ifndef DIRCH_NO_OPENMP
+#pragma omp parallel for shared( difference )
+	for( long x = 1; x < g.SizeX() - 1; x++ ) {
+#else
 	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
+#endif
 		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
 			const NumericType newValue = p( x, y ) - tau * g( x, y );
 			difference = max( difference, abs( newValue - p( x, y ) ) );
@@ -55,31 +67,41 @@ NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
 // Вычисление alpha.
 CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
 {
-	CFraction alpha;
-#pragma omp parallel for shared(alpha.Numerator, alpha.Denominator)
+	NumericType numerator = 0;
+	NumericType denominator = 0;
+#ifndef DIRCH_NO_OPENMP
+#pragma omp parallel for shared( numerator, denominator )
+	for( long x = 1; x < r.SizeX() - 1; x++ ) {
+#else
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
+#endif
 		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
 			const NumericType common = g( x, y ) * grid.X.AverageStep( x ) * grid.Y.AverageStep( y );
-			alpha.Numerator += LaplasOperator( r, grid, x, y ) * common;
-			alpha.Denominator += LaplasOperator( g, grid, x, y ) * common;
+			numerator += LaplasOperator( r, grid, x, y ) * common;
+			denominator += LaplasOperator( g, grid, x, y ) * common;
 		}
 	}
-	return alpha;
+	return CFraction( numerator, denominator );
 }
 
 // Вычисление tau.
 CFraction CalcTau( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
 {
-	CFraction tau;
-#pragma omp parallel for shared(tau.Numerator, tau.Denominator)
+	NumericType numerator = 0;
+	NumericType denominator = 0;
+#ifndef DIRCH_NO_OPENMP
+#pragma omp parallel for shared( numerator, denominator )
+	for( long x = 1; x < r.SizeX() - 1; x++ ) {
+#else
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
+#endif
 		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
 			const NumericType common = g( x, y ) * grid.X.AverageStep( x ) * grid.Y.AverageStep( y );
-			tau.Numerator += r( x, y ) * common;
-			tau.Denominator += LaplasOperator( g, grid, x, y ) * common;
+			numerator += r( x, y ) * common;
+			denominator += LaplasOperator( g, grid, x, y ) * common;
 		}
 	}
-	return tau;
+	return CFraction( numerator, denominator );
 }
 
 ///////////////////////////////////////////////////////////////////////////////

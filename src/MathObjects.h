@@ -20,9 +20,9 @@ struct CFraction {
 	NumericType Numerator; // числитель
 	NumericType Denominator; // знаменатель
 
-	CFraction() :
-		Numerator( 0 ),
-		Denominator( 0 )
+	explicit CFraction( NumericType numerator = 0, NumericType denominator = 1 ) :
+		Numerator( numerator ),
+		Denominator( denominator )
 	{
 	}
 
