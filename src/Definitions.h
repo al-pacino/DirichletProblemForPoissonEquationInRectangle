@@ -1,7 +1,7 @@
 #pragma once
 
-// Файл содержит задание используемых типов и функций
-// для решения задачи u''xx + u''yy + F = 0
+// Р¤Р°Р№Р» СЃРѕРґРµСЂР¶РёС‚ Р·Р°РґР°РЅРёРµ РёСЃРїРѕР»СЊР·СѓРµРјС‹С… С‚РёРїРѕРІ Рё С„СѓРЅРєС†РёР№
+// РґР»СЏ СЂРµС€РµРЅРёСЏ Р·Р°РґР°С‡Рё u''xx + u''yy + F = 0
 
 typedef double NumericType;
 #ifdef MPI_VERSION
@@ -11,10 +11,10 @@ const NumericType DefaultEps = static_cast<NumericType>( 0.0001 );
 
 #include <MathObjects.h> // CArea
 
-// Область решения задачи.
+// РћР±Р»Р°СЃС‚СЊ СЂРµС€РµРЅРёСЏ Р·Р°РґР°С‡Рё.
 const CArea Area( -2, 2, -2, 2 );
 
-// Правая часть.
+// РџСЂР°РІР°СЏ С‡Р°СЃС‚СЊ.
 inline NumericType F( NumericType x, NumericType y )
 {
 	const NumericType xy2 = ( x + y ) * ( x + y );
@@ -22,7 +22,7 @@ inline NumericType F( NumericType x, NumericType y )
 	return f;
 }
 
-// Граничная функция.
+// Р“СЂР°РЅРёС‡РЅР°СЏ С„СѓРЅРєС†РёСЏ.
 inline NumericType Phi( NumericType x, NumericType y )
 {
 	const NumericType xy2 = ( x + y ) * ( x + y );

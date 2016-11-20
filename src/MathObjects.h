@@ -17,8 +17,8 @@ struct CArea {
 ///////////////////////////////////////////////////////////////////////////////
 
 struct CFraction {
-	NumericType Numerator; // числитель
-	NumericType Denominator; // знаменатель
+	NumericType Numerator; // С‡РёСЃР»РёС‚РµР»СЊ
+	NumericType Denominator; // Р·РЅР°РјРµРЅР°С‚РµР»СЊ
 
 	CFraction() :
 		Numerator( 0 ),

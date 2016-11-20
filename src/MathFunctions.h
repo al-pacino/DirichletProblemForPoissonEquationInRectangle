@@ -4,19 +4,19 @@
 
 NumericType LaplasOperator( const CMatrix& matrix, const CUniformGrid& grid, size_t x, size_t y );
 
-// Вычисление невязки rij во внутренних точках.
+// Р’С‹С‡РёСЃР»РµРЅРёРµ РЅРµРІСЏР·РєРё rij РІРѕ РІРЅСѓС‚СЂРµРЅРЅРёС… С‚РѕС‡РєР°С….
 void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r );
 
-// Вычисление значений gij во внутренних точках.
+// Р’С‹С‡РёСЃР»РµРЅРёРµ Р·РЅР°С‡РµРЅРёР№ gij РІРѕ РІРЅСѓС‚СЂРµРЅРЅРёС… С‚РѕС‡РєР°С….
 void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g );
 
-// Вычисление значений pij во внутренних точках, возвращается максимум норма.
+// Р’С‹С‡РёСЃР»РµРЅРёРµ Р·РЅР°С‡РµРЅРёР№ pij РІРѕ РІРЅСѓС‚СЂРµРЅРЅРёС… С‚РѕС‡РєР°С…, РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РјР°РєСЃРёРјСѓРј РЅРѕСЂРјР°.
 NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p );
 
-// Вычисление alpha.
+// Р’С‹С‡РёСЃР»РµРЅРёРµ alpha.
 CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid );
 
-// Вычисление tau.
+// Р’С‹С‡РёСЃР»РµРЅРёРµ tau.
 CFraction CalcTau( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid );
 
 ///////////////////////////////////////////////////////////////////////////////

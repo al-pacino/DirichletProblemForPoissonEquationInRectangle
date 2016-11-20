@@ -84,7 +84,7 @@ public:
 		for( vector<CExchangeDefinition>::iterator i = begin(); i != end(); ++i ) {
 			i->DoExchange( matrix );
 		}
-		// Сначала начинаем все асинхронные операции, затем ждём.
+		// РЎРЅР°С‡Р°Р»Р° РЅР°С‡РёРЅР°РµРј РІСЃРµ Р°СЃРёРЅС…СЂРѕРЅРЅС‹Рµ РѕРїРµСЂР°С†РёРё, Р·Р°С‚РµРј Р¶РґС‘Рј.
 		for( vector<CExchangeDefinition>::iterator i = begin(); i != end(); ++i ) {
 			i->Wait( matrix );
 		}
@@ -159,21 +159,21 @@ void CProgram::Run( size_t pointsX, size_t pointsY, const CArea& area,
 {
 	CProgram program( pointsX, pointsY, area );
 
-	// Выполняем нулевую итерацию (инициализацию).
+	// Р’С‹РїРѕР»РЅСЏРµРј РЅСѓР»РµРІСѓСЋ РёС‚РµСЂР°С†РёСЋ (РёРЅРёС†РёР°Р»РёР·Р°С†РёСЋ).
 	if( !callback.BeginIteration() ) {
 		return;
 	}
 	program.iteration0();
 	callback.EndIteration( program.difference );
 
-	// Выполняем первую итерацию.
+	// Р’С‹РїРѕР»РЅСЏРµРј РїРµСЂРІСѓСЋ РёС‚РµСЂР°С†РёСЋ.
 	if( !callback.BeginIteration() ) {
 		return;
 	}
 	program.iteration1();
 	callback.EndIteration( program.difference );
 
-	// Выполняем остальные итерации.
+	// Р’С‹РїРѕР»РЅСЏРµРј РѕСЃС‚Р°Р»СЊРЅС‹Рµ РёС‚РµСЂР°С†РёРё.
 	while( callback.BeginIteration() ) {
 		program.iteration2();
 		callback.EndIteration( program.difference );
@@ -205,11 +205,11 @@ CProgram::CProgram( size_t pointsX, size_t pointsY, const CArea& area ) :
 		endY++;
 	}
 
-	// Инициализируем grid.
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј grid.
 	grid.X.PartInit( area.X0, area.Xn, pointsX, beginX, endX );
 	grid.Y.PartInit( area.Y0, area.Yn, pointsY, beginY, endY );
 
-	// Заполняем список соседей с которыми будем обмениваться данными.
+	// Р—Р°РїРѕР»РЅСЏРµРј СЃРїРёСЃРѕРє СЃРѕСЃРµРґРµР№ СЃ РєРѕС‚РѕСЂС‹РјРё Р±СѓРґРµРј РѕР±РјРµРЅРёРІР°С‚СЊСЃСЏ РґР°РЅРЅС‹РјРё.
 	setExchangeDefinitions();
 
 #ifdef _DEBUG
@@ -366,11 +366,11 @@ void CProgram::iteration2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// Последовательная реализация.
+// РџРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅР°СЏ СЂРµР°Р»РёР·Р°С†РёСЏ.
 void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 	IIterationCallback& callback )
 {
-	// Инициализируем grid.
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј grid.
 	CUniformGrid grid;
 	grid.X.Init( area.X0, area.Xn, pointsX );
 	grid.Y.Init( area.Y0, area.Yn, pointsY );
@@ -380,7 +380,7 @@ void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 
 	NumericType difference = numeric_limits<NumericType>::max();
 
-	// Выполняем нулевую итерацию (инициализацию).
+	// Р’С‹РїРѕР»РЅСЏРµРј РЅСѓР»РµРІСѓСЋ РёС‚РµСЂР°С†РёСЋ (РёРЅРёС†РёР°Р»РёР·Р°С†РёСЋ).
 	if( !callback.BeginIteration() ) {
 		return;
 	}
@@ -394,7 +394,7 @@ void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 	}
 	callback.EndIteration( difference );
 
-	// Выполняем первую итерацию.
+	// Р’С‹РїРѕР»РЅСЏРµРј РїРµСЂРІСѓСЋ РёС‚РµСЂР°С†РёСЋ.
 	if( !callback.BeginIteration() ) {
 		return;
 	}
@@ -406,7 +406,7 @@ void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 	callback.EndIteration( difference );
 
 	CMatrix g( r );
-	// Выполняем остальные итерации.
+	// Р’С‹РїРѕР»РЅСЏРµРј РѕСЃС‚Р°Р»СЊРЅС‹Рµ РёС‚РµСЂР°С†РёРё.
 	while( callback.BeginIteration() ) {
 		CalcR( p, grid, r );
 		const CFraction alpha = CalcAlpha( r, g, grid );
