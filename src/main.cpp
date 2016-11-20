@@ -305,23 +305,27 @@ void CProgram::iteration0()
 	p.Init( grid.X.Size(), grid.Y.Size() );
 
 	if( !hasLeftNeighbor() ) {
+#pragma omp parallel for
 		for( size_t y = 0; y < p.SizeY(); y++ ) {
 			p( 0, y ) = Phi( grid.X[0], grid.Y[y] );
 		}
 	}
 	if( !hasRightNeighbor() ) {
 		const size_t left = p.SizeX() - 1;
+#pragma omp parallel for
 		for( size_t y = 0; y < p.SizeY(); y++ ) {
 			p( left, y ) = Phi( grid.X[left], grid.Y[y] );
 		}
 	}
 	if( !hasTopNeighbor() ) {
+#pragma omp parallel for
 		for( size_t x = 0; x < p.SizeX(); x++ ) {
 			p( x, 0 ) = Phi( grid.X[x], grid.Y[0] );
 		}
 	}
 	if( !hasBottomNeighbor() ) {
 		const size_t bottom = p.SizeY() - 1;
+#pragma omp parallel for
 		for( size_t x = 0; x < p.SizeX(); x++ ) {
 			p( x, bottom ) = Phi( grid.X[x], grid.Y[bottom] );
 		}
@@ -437,20 +441,28 @@ void ParseArguments( const int argc, const char* const argv[],
 
 void Main( const int argc, const char* const argv[] )
 {
-	size_t pointsX;
-	size_t pointsY;
-	ParseArguments( argc, argv, pointsX, pointsY );
-
 	double programTime = 0.0;
 	{
+		CMpiTimer timer( programTime );
+
+		// Используем только потоки ввода вывода iostream,
+		// поэтому отключаем синхронизацию ввода вывода со стандартной библиотекой C.
+		ios::sync_with_stdio( false );
+
+		size_t pointsX;
+		size_t pointsY;
+		ParseArguments( argc, argv, pointsX, pointsY );
+
 		auto_ptr<IIterationCallback> callback( new CSimpleIterationCallback );
 		if( CMpiSupport::Rank() == 0 ) {
 			callback.reset( new CIterationCallback( cout, 0 ) );
 		}
 
-		CMpiTimer timer( programTime );
-		CProgram::Run( pointsX, pointsY, Area, *callback );
-		//Serial( pointsX, pointsY, Area, *callback );
+		if( CMpiSupport::NumberOfProccess() == 1 ) {
+			Serial( pointsX, pointsY, Area, *callback );
+		} else {
+			CProgram::Run( pointsX, pointsY, Area, *callback );
+		}
 	}
 	cout << "(" << CMpiSupport::Rank() << ") Time: " << programTime << endl;
 }

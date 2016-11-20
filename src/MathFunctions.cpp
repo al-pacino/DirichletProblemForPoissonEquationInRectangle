@@ -18,6 +18,7 @@ NumericType LaplasOperator( const CMatrix& matrix, const CUniformGrid& grid, siz
 // Вычисление невязки rij во внутренних точках.
 void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
 {
+#pragma omp parallel for
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
 		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
 			r( x, y ) = LaplasOperator( p, grid, x, y ) - F( grid.X[x], grid.Y[y] );
@@ -28,6 +29,7 @@ void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
 // Вычисление значений gij во внутренних точках.
 void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
 {
+#pragma omp parallel for
 	for( size_t x = 1; x < g.SizeX() - 1; x++ ) {
 		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
 			g( x, y ) = r( x, y ) - alpha * g( x, y );
@@ -39,6 +41,7 @@ void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
 NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
 {
 	NumericType difference = 0;
+#pragma omp parallel for shared(difference)
 	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
 		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
 			const NumericType newValue = p( x, y ) - tau * g( x, y );
@@ -53,6 +56,7 @@ NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
 CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
 {
 	CFraction alpha;
+#pragma omp parallel for shared(alpha.Numerator, alpha.Denominator)
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
 		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
 			const NumericType common = g( x, y ) * grid.X.AverageStep( x ) * grid.Y.AverageStep( y );
@@ -67,6 +71,7 @@ CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid 
 CFraction CalcTau( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
 {
 	CFraction tau;
+#pragma omp parallel for shared(tau.Numerator, tau.Denominator)
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
 		for( size_t y = 1; y < r.SizeY() - 1; y++ ) {
 			const NumericType common = g( x, y ) * grid.X.AverageStep( x ) * grid.Y.AverageStep( y );
