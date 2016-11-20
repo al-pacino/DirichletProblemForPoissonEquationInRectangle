@@ -388,10 +388,12 @@ void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 	if( !callback.BeginIteration() ) {
 		return;
 	}
+#pragma omp parallel for
 	for( size_t x = 0; x < p.SizeX(); x++ ) {
 		p( x, 0 ) = Phi( grid.X[x], grid.Y[0] );
 		p( x, p.SizeY() - 1 ) = Phi( grid.X[x], grid.Y[p.SizeY() - 1] );
 	}
+#pragma omp parallel for
 	for( size_t y = 1; y < p.SizeY() - 1; y++ ) {
 		p( 0, y ) = Phi( grid.X[0], grid.Y[y] );
 		p( p.SizeX() - 1, y ) = Phi( grid.X[p.SizeX() - 1], grid.Y[y] );
