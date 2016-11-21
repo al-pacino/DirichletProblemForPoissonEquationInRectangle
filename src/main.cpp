@@ -444,7 +444,7 @@ void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 
 	if( !dumpFilename.empty() ) {
 		cout << "Total error: " << TotalError( p, grid ) << endl;
-		ofstream outputFile( dumpFilename );
+		ofstream outputFile( dumpFilename.c_str() );
 		DumpMatrix( p, grid, outputFile );
 	}
 }
