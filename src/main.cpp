@@ -107,6 +107,19 @@ void GetBeginEndPoints( const size_t numberOfPoints, const size_t numberOfBlocks
 
 ///////////////////////////////////////////////////////////////////////////////
 
+NumericType TotalError( const CMatrix& p, const CUniformGrid& grid )
+{
+	NumericType error = 0;
+	for( size_t x = 0; x < p.SizeX(); x++ ) {
+		for( size_t y = 0; y < p.SizeY(); y++ ) {
+			error = max( error, abs( Phi( grid.X[x], grid.Y[y] ) - p( x, y ) ) );
+		}
+	}
+	return error;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 class CProgram {
 public:
 	static void Run( size_t pointsX, size_t pointsY, const CArea& area,
@@ -366,9 +379,20 @@ void CProgram::iteration2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void DumpMatrix( const CMatrix& matrix, const CUniformGrid& grid, ostream& output )
+{
+	for( size_t x = 0; x < matrix.SizeX(); x++ ) {
+		for( size_t y = 0; y < matrix.SizeY(); y++ ) {
+			output << grid.X[x] << '\t' << grid.Y[y] << '\t' << matrix( x, y ) << endl;
+		}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 // Последовательная реализация.
 void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
-	IIterationCallback& callback )
+	IIterationCallback& callback, const string& dumpFilename = "" )
 {
 	// Инициализируем grid.
 	CUniformGrid grid;
@@ -417,22 +441,34 @@ void Serial( const size_t pointsX, const size_t pointsY, const CArea& area,
 
 		callback.EndIteration( difference );
 	}
+
+	if( !dumpFilename.empty() ) {
+		cout << "Total error: " << TotalError( p, grid ) << endl;
+		ofstream outputFile( dumpFilename );
+		DumpMatrix( p, grid, outputFile );
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 void ParseArguments( const int argc, const char* const argv[],
-	size_t& pointsX, size_t& pointsY )
+	size_t& pointsX, size_t& pointsY, string& dumpFilename )
 {
-	if( argc != 3 ) {
-		throw CException( "too few arguments\nUsage: dirch POINTS_X POINTS_Y" );
+	if( argc < 3 || argc > 4 ) {
+		throw CException( "too few arguments\n"
+			"Usage: dirch POINTS_X POINTS_Y [DUMP_FILENAME]" );
 	}
 
 	pointsX = strtoul( argv[1], 0, 10 );
 	pointsY = strtoul( argv[2], 0, 10 );
 
 	if( pointsX == 0 || pointsY == 0 ) {
-		throw CException( "invalid format of arguments\nUsage: dirch POINTS_X POINTS_Y" );
+		throw CException( "invalid format of arguments\n"
+			"Usage: dirch POINTS_X POINTS_Y [DUMP_FILENAME]" );
+	}
+
+	if( argc == 4 ) {
+		dumpFilename = argv[3];
 	}
 }
 
@@ -448,7 +484,8 @@ void Main( const int argc, const char* const argv[] )
 
 		size_t pointsX;
 		size_t pointsY;
-		ParseArguments( argc, argv, pointsX, pointsY );
+		string dumpFilename;
+		ParseArguments( argc, argv, pointsX, pointsY, dumpFilename );
 
 		auto_ptr<IIterationCallback> callback( new CSimpleIterationCallback );
 		if( CMpiSupport::Rank() == 0 ) {
@@ -456,7 +493,7 @@ void Main( const int argc, const char* const argv[] )
 		}
 
 		if( CMpiSupport::NumberOfProccess() == 1 ) {
-			Serial( pointsX, pointsY, Area, *callback );
+			Serial( pointsX, pointsY, Area, *callback, dumpFilename );
 		} else {
 			CProgram::Run( pointsX, pointsY, Area, *callback );
 		}
