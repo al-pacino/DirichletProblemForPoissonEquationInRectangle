@@ -151,10 +151,7 @@ private:
 	bool hasRightNeighbor() const { return ( rankX < ( processesX - 1 ) ); }
 	bool hasTopNeighbor() const { return ( rankY > 0 ); }
 	bool hasBottomNeighbor() const { return ( rankY < ( processesY - 1 ) ); }
-	size_t rankByXY( size_t x, size_t y ) const
-	{
-		return ( y * processesX + x );
-	}
+	size_t rankByXY( size_t x, size_t y ) const { return ( y * processesX + x ); }
 
 	void setProcessXY();
 	void setExchangeDefinitions();
