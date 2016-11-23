@@ -45,16 +45,12 @@ void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
 	}
 }
 
+
 // Вычисление значений pij во внутренних точках, возвращается максимум норма.
 NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
 {
 	NumericType difference = 0;
-#ifndef DIRCH_NO_OPENMP
-#pragma omp parallel for shared( difference )
-	for( long x = 1; x < g.SizeX() - 1; x++ ) {
-#else
 	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
-#endif
 		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
 			const NumericType newValue = p( x, y ) - tau * g( x, y );
 			difference = max( difference, abs( newValue - p( x, y ) ) );
@@ -70,7 +66,7 @@ CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid 
 	NumericType numerator = 0;
 	NumericType denominator = 0;
 #ifndef DIRCH_NO_OPENMP
-#pragma omp parallel for shared( numerator, denominator )
+#pragma omp parallel for reduction( +:numerator, denominator )
 	for( long x = 1; x < r.SizeX() - 1; x++ ) {
 #else
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
@@ -90,7 +86,7 @@ CFraction CalcTau( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
 	NumericType numerator = 0;
 	NumericType denominator = 0;
 #ifndef DIRCH_NO_OPENMP
-#pragma omp parallel for shared( numerator, denominator )
+#pragma omp parallel for reduction( +:numerator, denominator )
 	for( long x = 1; x < r.SizeX() - 1; x++ ) {
 #else
 	for( size_t x = 1; x < r.SizeX() - 1; x++ ) {
