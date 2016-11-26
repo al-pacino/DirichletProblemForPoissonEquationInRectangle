@@ -16,7 +16,7 @@ NumericType LaplasOperator( const CMatrix& matrix, const CUniformGrid& grid, siz
 }
 
 // Вычисление невязки rij во внутренних точках.
-void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
+void CalcR( const CMatrix& p, const CUniformGrid& grid, CMatrix& r )
 {
 #ifndef DIRCH_NO_OPENMP
 #pragma omp parallel for
@@ -31,7 +31,7 @@ void CalcR( const CMatrix&p, const CUniformGrid& grid, CMatrix& r )
 }
 
 // Вычисление значений gij во внутренних точках.
-void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
+void CalcG( const CMatrix& r, const NumericType alpha, CMatrix& g )
 {
 #ifndef DIRCH_NO_OPENMP
 #pragma omp parallel for
@@ -45,9 +45,8 @@ void CalcG( const CMatrix&r, const NumericType alpha, CMatrix& g )
 	}
 }
 
-
 // Вычисление значений pij во внутренних точках, возвращается максимум норма.
-NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
+NumericType CalcP( const CMatrix& g, const NumericType tau, CMatrix& p )
 {
 	NumericType difference = 0;
 	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
@@ -61,7 +60,7 @@ NumericType CalcP( const CMatrix&g, const NumericType tau, CMatrix& p )
 }
 
 // Вычисление alpha.
-CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
+CFraction CalcAlpha( const CMatrix& r, const CMatrix&g, const CUniformGrid& grid )
 {
 	NumericType numerator = 0;
 	NumericType denominator = 0;
@@ -81,7 +80,7 @@ CFraction CalcAlpha( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid 
 }
 
 // Вычисление tau.
-CFraction CalcTau( const CMatrix&r, const CMatrix&g, const CUniformGrid& grid )
+CFraction CalcTau( const CMatrix& r, const CMatrix&g, const CUniformGrid& grid )
 {
 	NumericType numerator = 0;
 	NumericType denominator = 0;
