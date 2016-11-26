@@ -50,7 +50,7 @@ NumericType CalcP( const CMatrix& g, const NumericType tau, CMatrix& p )
 {
 	NumericType difference = 0;
 	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
-		for( size_t y = 1; y < g.SizeY() - 1; y++ ) {
+		for( size_t y = 1; y < p.SizeY() - 1; y++ ) {
 			const NumericType newValue = p( x, y ) - tau * g( x, y );
 			difference = max( difference, abs( newValue - p( x, y ) ) );
 			p( x, y ) = newValue;
