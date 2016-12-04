@@ -110,8 +110,8 @@ void GetBeginEndPoints( const size_t numberOfPoints, const size_t numberOfBlocks
 NumericType TotalError( const CMatrix& p, const CUniformGrid& grid )
 {
 	NumericType error = 0;
-	for( size_t x = 0; x < p.SizeX(); x++ ) {
-		for( size_t y = 0; y < p.SizeY(); y++ ) {
+	for( size_t x = 1; x < p.SizeX() - 1; x++ ) {
+		for( size_t y = 1; y < p.SizeY() - 1; y++ ) {
 			error = max( error, abs( Phi( grid.X[x], grid.Y[y] ) - p( x, y ) ) );
 		}
 	}
